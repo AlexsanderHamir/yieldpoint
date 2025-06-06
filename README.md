@@ -4,12 +4,7 @@ A Go package that enables cooperative goroutine yielding based on priority-aware
 
 ## Overview
 
-`yieldpoint` provides a simple yet powerful mechanism for implementing cooperative multitasking in Go applications. It allows goroutines to voluntarily yield execution when high-priority tasks are active, making it ideal for:
-
-- Game engines
-- Real-time systems
-- Job schedulers
-- Any application requiring fine-grained control over goroutine scheduling
+`yieldpoint` provides a simple yet powerful mechanism for implementing cooperative multitasking in Go applications. It allows goroutines to voluntarily yield execution when high-priority tasks are active.
 
 ## Features
 
@@ -48,6 +43,12 @@ func main() {
 
         // Or block until high-priority ends
         yieldpoint.WaitIfActive()
+
+        // higher performance
+        yieldpoint.MaybeYieldFast()
+
+        // higher performance
+        yieldpoint.WaitIfActiveFast()
     }()
 }
 ```
@@ -83,12 +84,38 @@ if err != nil {
 
 ### Tracing
 
+The package provides optional instrumentation for observing yield events in your application. This is useful for debugging, monitoring, and understanding the behavior of your cooperative multitasking system.
+
 ```go
+// Set up tracing to monitor yield events
 yieldpoint.SetTraceFunc(func(e yieldpoint.YieldEvent) {
-    fmt.Printf("Goroutine %d yielded at %v (duration: %v)\n",
-        e.GoroutineID, e.Timestamp, e.Duration)
+    fmt.Printf("TRACE: Goroutine %d - %s (duration: %v, high-priority: %v)\n",
+        e.GoroutineID, e.Reason, e.Duration, e.IsHighPriority)
 })
 ```
+
+Each `YieldEvent` contains the following information:
+
+- `GoroutineID`: The ID of the goroutine that yielded
+- `Timestamp`: When the yield occurred
+- `Duration`: How long the yield lasted (if applicable)
+- `Reason`: Why the yield occurred (e.g., "high_priority_active", "enter_high_priority", "exit_high_priority", "wait_complete")
+- `IsHighPriority`: Whether the yielding goroutine has high priority
+
+Common use cases for tracing:
+
+- Debugging priority-related issues
+- Monitoring yield patterns in production
+- Understanding the impact of high-priority tasks
+- Measuring yield durations and frequencies
+
+You can disable tracing at any time by setting the trace function to nil:
+
+```go
+yieldpoint.SetTraceFunc(nil)
+```
+
+For a complete example of using tracing, see the `examples/tracing/main.go` file.
 
 ## API Reference
 
@@ -99,6 +126,16 @@ yieldpoint.SetTraceFunc(func(e yieldpoint.YieldEvent) {
 - `ExitHighPriority()`: Ends a high-priority section
 - `WaitIfActive()`: Blocks until high-priority section ends
 - `IsHighPriorityActive()`: Checks if any high-priority sections are active
+
+### Configuration Functions
+
+- `SetSpinWaitIterations(iterations int)`: Sets the number of spin iterations before falling back to blocking wait. This setting applies to the fast variant `WaitIfActiveFast`.
+- `SetDefaultYieldDuration(duration time.Duration)`: Sets the default duration for yielding operations. This setting applies to the standard `MaybeYield` to ensure it yields.
+
+## High Performance Functions
+
+- `MaybeYieldFast()`: High performance version
+- `WaitIfActiveFast()`: High performance version
 
 ### Priority Functions
 
@@ -114,10 +151,10 @@ yieldpoint.SetTraceFunc(func(e yieldpoint.YieldEvent) {
 
 - `SetTraceFunc(func(YieldEvent))`: Sets a callback for yield events
 
-## Status
+## Contributions
 
-This package is experimental. Feedback and contributions are welcome!
+Share your talents and ideas !!
 
 ## License
 
-MIT License - see LICENSE file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

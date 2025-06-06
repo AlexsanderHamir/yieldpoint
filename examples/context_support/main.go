@@ -14,7 +14,7 @@ func workerWithContext(ctx context.Context, name string, wg *sync.WaitGroup) {
 
 	fmt.Printf("%s starting\n", name)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		select {
 		case <-ctx.Done():
 			fmt.Printf("%s cancelled: %v\n", name, ctx.Err())
@@ -29,6 +29,7 @@ func workerWithContext(ctx context.Context, name string, wg *sync.WaitGroup) {
 				return
 			}
 
+			// Simulate work
 			time.Sleep(100 * time.Millisecond)
 		}
 	}

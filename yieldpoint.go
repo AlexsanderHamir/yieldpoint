@@ -20,9 +20,17 @@ var Cond = sync.NewCond(&Mu)
 // DefaultYieldDuration is the default duration to sleep when yielding
 var DefaultYieldDuration = 1 * time.Millisecond
 
+// SpinWaitIterations is the number of iterations to spin-wait before falling back to mutex-based waiting
+var SpinWaitIterations = 1000
+
 // SetDefaultYieldDuration sets the default duration to sleep when yielding
 func SetDefaultYieldDuration(d time.Duration) {
 	DefaultYieldDuration = d
+}
+
+// SetSpinWaitIterations sets the number of iterations to spin-wait before falling back to mutex-based waiting
+func SetSpinWaitIterations(n int) {
+	SpinWaitIterations = n
 }
 
 // MaybeYield voluntarily yields the current goroutine if any high-priority sections are active.
@@ -73,4 +81,39 @@ func WaitIfActive() {
 // IsHighPriorityActive returns true if any high-priority sections are currently active.
 func IsHighPriorityActive() bool {
 	return HighPriorityCount.Load() > 0
+}
+
+// MaybeYieldFast is a high-performance version of MaybeYield that avoids time.Sleep
+// and uses only runtime.Gosched() for minimal overhead. This is suitable for
+// performance-critical code paths where the exact timing of yields is less important.
+func MaybeYieldFast() {
+	if HighPriorityCount.Load() > 0 {
+		runtime.Gosched()
+		traceYieldEvent("high_priority_active_fast", 0)
+	}
+}
+
+// WaitIfActiveFast is a high-performance version of WaitIfActive that uses a spin-wait
+// strategy before falling back to mutex-based waiting. This is suitable for
+// performance-critical code paths where the wait time is expected to be very short.
+func WaitIfActiveFast() {
+	start := time.Now()
+
+	// First try spin-waiting
+	for range SpinWaitIterations {
+		if HighPriorityCount.Load() == 0 {
+			traceYieldEvent("wait_complete_fast", time.Since(start))
+			return
+		}
+		runtime.Gosched()
+	}
+
+	// Only fall back to mutex-based waiting if spin-wait didn't succeed
+	Mu.Lock()
+	for HighPriorityCount.Load() > 0 {
+		Cond.Wait()
+	}
+	Mu.Unlock()
+
+	traceYieldEvent("wait_complete_fast", time.Since(start))
 }

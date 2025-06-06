@@ -36,6 +36,8 @@ func backgroundWorker(wg *sync.WaitGroup) {
 	for i := range 5 {
 		fmt.Printf("Background worker iteration %d\n", i)
 		yieldpoint.MaybeYield()
+		
+		// Simulate work
 		time.Sleep(50 * time.Millisecond)
 	}
 }

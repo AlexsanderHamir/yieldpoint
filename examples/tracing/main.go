@@ -13,12 +13,13 @@ func tracedWorker(name string, wg *sync.WaitGroup) {
 
 	fmt.Printf("%s starting\n", name)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		fmt.Printf("%s iteration %d\n", name, i)
 
 		// This yield will be traced
 		yieldpoint.MaybeYield()
 
+		// Simulate work
 		time.Sleep(100 * time.Millisecond)
 	}
 

@@ -16,31 +16,25 @@ This directory contains various examples demonstrating different features of the
    - Shows how to handle context cancellation in yielding operations
    - Run with: `go run examples/context_support/main.go`
 
-3. **Tracing** (`tracing/`)
-
-   - Shows how to use yieldpoint's tracing functionality
-   - Demonstrates monitoring yield events
-   - Run with: `go run examples/tracing/main.go`
-
-4. **Nested Priority** (`nested_priority/`)
+3. **Nested Priority** (`nested_priority/`)
 
    - Demonstrates nested high-priority sections
    - Shows how multiple priority levels can be active simultaneously
    - Run with: `go run examples/nested_priority/main.go`
 
-5. **Concurrent Yielding** (`concurrent_yielding/`)
+4. **Concurrent Yielding** (`concurrent_yielding/`)
 
    - Demonstrates how multiple goroutines can yield simultaneously
    - Shows coordination between concurrent yielding operations
    - Run with: `go run examples/concurrent_yielding/main.go`
 
-6. **Fast** (`fast/`)
+5. **Fast** (`fast/`)
 
    - Demonstrates high-performance yielding patterns
    - Shows optimized usage of yieldpoint for latency-sensitive applications
    - Run with: `go run examples/fast/main.go`
 
-7. **Wait If Active** (`wait_if_active/`)
+6. **Wait If Active** (`wait_if_active/`)
 
    - Demonstrates the use of WaitIfActive functionality
    - Shows how to wait for high-priority tasks to complete

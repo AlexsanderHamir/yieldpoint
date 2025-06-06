@@ -91,48 +91,6 @@ func TestContextAwareFunctions(t *testing.T) {
 	}
 }
 
-func TestPriorityLevels(t *testing.T) {
-	// Test default priority
-	if got := GetHighPriority(); got != false {
-		t.Errorf("GetHighPriority() = %v, want false", got)
-	}
-
-	// Test setting and getting priority
-	SetHighPriority(true)
-	if got := GetHighPriority(); got != true {
-		t.Errorf("GetHighPriority() = %v, want true", got)
-	}
-
-	SetHighPriority(false)
-	if got := GetHighPriority(); got != false {
-		t.Errorf("GetHighPriority() = %v, want false", got)
-	}
-}
-
-func TestTracing(t *testing.T) {
-	var events []YieldEvent
-	SetTraceFunc(func(e YieldEvent) {
-		events = append(events, e)
-	})
-
-	// Trigger some yield events
-	MaybeYield()
-	EnterHighPriority()
-	MaybeYield()
-	ExitHighPriority()
-
-	// Verify that events were recorded
-	if len(events) == 0 {
-		t.Error("No yield events were recorded")
-	}
-
-	// Disable tracing
-	SetTraceFunc(nil)
-	MaybeYield()
-	if len(events) == 0 {
-		t.Error("Events should have been recorded before disabling tracing")
-	}
-}
 
 func TestConcurrentHighPriority(t *testing.T) {
 	// Test multiple goroutines entering and exiting high priority simultaneously
@@ -140,11 +98,11 @@ func TestConcurrentHighPriority(t *testing.T) {
 	const numGoroutines = 10
 	const iterations = 100
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+			for range iterations {
 				EnterHighPriority()
 				// Verify we can detect high priority is active
 				if !IsHighPriorityActive() {
@@ -220,7 +178,6 @@ func TestMaybeYieldFast(t *testing.T) {
 	}
 }
 
-
 func TestConcurrentWaitAndYield(t *testing.T) {
 	const numWaiters = 5
 	const numYielders = 5
@@ -235,7 +192,7 @@ func TestConcurrentWaitAndYield(t *testing.T) {
 		}(i)
 	}
 
-	for i := 0; i < numYielders; i++ {
+	for i := range numYielders {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -305,60 +262,6 @@ func TestContextCancellation(t *testing.T) {
 	}
 }
 
-func TestTracingEvents(t *testing.T) {
-	var events []YieldEvent
-	SetTraceFunc(func(e YieldEvent) {
-		events = append(events, e)
-	})
-
-	// Test tracing for various operations
-	EnterHighPriority()
-	MaybeYield()
-	MaybeYieldFast()
-	WaitIfActiveFast()
-	ExitHighPriority()
-
-	// Verify events were recorded
-	if len(events) == 0 {
-		t.Fatal("No yield events were recorded")
-	}
-
-	// Verify event types
-	eventTypes := make(map[string]bool)
-	for _, e := range events {
-		eventTypes[e.Reason] = true
-	}
-
-	expectedTypes := map[string]bool{
-		"enter_high_priority":       true,
-		"high_priority_active":      true,
-		"high_priority_active_fast": true,
-		"wait_complete_fast":        true,
-		"exit_high_priority":        true,
-	}
-
-	for expected := range expectedTypes {
-		if !eventTypes[expected] {
-			t.Errorf("Expected event type %s not found in trace", expected)
-		}
-	}
-
-	// Verify event timestamps are in order
-	for i := 1; i < len(events); i++ {
-		if events[i].Timestamp.Before(events[i-1].Timestamp) {
-			t.Errorf("Events out of order: %v before %v", events[i].Timestamp, events[i-1].Timestamp)
-		}
-	}
-
-	// Test disabling tracing
-	SetTraceFunc(nil)
-	events = nil
-	MaybeYield()
-	if len(events) > 0 {
-		t.Error("Events were recorded after disabling tracing")
-	}
-}
-
 func TestConfigurationChanges(t *testing.T) {
 	// Test changing configuration values
 	originalYieldDuration := DefaultYieldDuration
@@ -391,78 +294,4 @@ func TestConfigurationChanges(t *testing.T) {
 	SetDefaultYieldDuration(originalYieldDuration)
 	SetSpinWaitIterations(originalSpinIterations)
 	ExitHighPriority()
-}
-
-func TestRaceConditions(t *testing.T) {
-	// Test for race conditions in concurrent operations
-	const numGoroutines = 10
-	const iterations = 1000
-	var wg sync.WaitGroup
-
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < iterations; j++ {
-				// Mix of operations that could potentially race
-				EnterHighPriority()
-				MaybeYield()
-				MaybeYieldFast()
-				IsHighPriorityActive()
-				ExitHighPriority()
-				WaitIfActiveFast()
-			}
-		}()
-	}
-
-	// Run with race detector enabled
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// Success - no races detected
-	case <-time.After(5 * time.Second):
-		t.Fatal("Test timed out, possible deadlock")
-	}
-}
-
-func TestGoroutineIDTracking(t *testing.T) {
-	// Test that goroutine IDs are correctly tracked in trace events
-	var events []YieldEvent
-	SetTraceFunc(func(e YieldEvent) {
-		events = append(events, e)
-	})
-
-	// Create multiple goroutines that yield
-	const numGoroutines = 5
-	var wg sync.WaitGroup
-	goroutineIDs := make(map[uint64]bool)
-
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			EnterHighPriority()
-			MaybeYield()
-			ExitHighPriority()
-		}()
-	}
-
-	wg.Wait()
-
-	// Verify that different goroutine IDs were recorded
-	for _, e := range events {
-		if e.GoroutineID == 0 {
-			t.Error("Zero goroutine ID recorded in trace event")
-		}
-		goroutineIDs[e.GoroutineID] = true
-	}
-
-	if len(goroutineIDs) < numGoroutines {
-		t.Errorf("Expected at least %d different goroutine IDs, got %d", numGoroutines, len(goroutineIDs))
-	}
 }

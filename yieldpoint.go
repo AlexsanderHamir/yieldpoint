@@ -2,6 +2,7 @@
 package yieldpoint
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -43,8 +44,6 @@ func MaybeYield() {
 
 		// Then sleep for a small duration to ensure the processor is actually yielded
 		time.Sleep(DefaultYieldDuration)
-
-		traceYieldEvent("high_priority_active", DefaultYieldDuration)
 	}
 }
 
@@ -52,7 +51,6 @@ func MaybeYield() {
 // Multiple calls are supported through reference counting.
 func EnterHighPriority() {
 	HighPriorityCount.Add(1)
-	traceYieldEvent("enter_high_priority", 0)
 }
 
 // ExitHighPriority ends a high-priority section.
@@ -63,7 +61,6 @@ func ExitHighPriority() {
 		Mu.Lock()
 		Cond.Broadcast()
 		Mu.Unlock()
-		traceYieldEvent("exit_high_priority", 0)
 	} else if count < 0 {
 		// Reset to 0 if we somehow went negative
 		HighPriorityCount.Store(0)
@@ -73,13 +70,11 @@ func ExitHighPriority() {
 // WaitIfActive blocks the current goroutine until no high-priority sections are active.
 // This is an efficient blocking operation that uses sync.Cond to avoid busy waiting.
 func WaitIfActive() {
-	start := time.Now()
 	for HighPriorityCount.Load() > 0 {
 		Mu.Lock()
 		Cond.Wait()
 		Mu.Unlock()
 	}
-	traceYieldEvent("wait_complete", time.Since(start))
 }
 
 // IsHighPriorityActive returns true if any high-priority sections are currently active.
@@ -93,7 +88,6 @@ func IsHighPriorityActive() bool {
 func MaybeYieldFast() {
 	if HighPriorityCount.Load() > 0 {
 		runtime.Gosched()
-		traceYieldEvent("high_priority_active_fast", 0)
 	}
 }
 
@@ -101,12 +95,9 @@ func MaybeYieldFast() {
 // strategy before falling back to mutex-based waiting. This is suitable for
 // performance-critical code paths where the wait time is expected to be very short.
 func WaitIfActiveFast() {
-	start := time.Now()
-
 	// First try spin-waiting
 	for range SpinWaitIterations {
 		if HighPriorityCount.Load() == 0 {
-			traceYieldEvent("wait_complete_fast", time.Since(start))
 			return
 		}
 		runtime.Gosched()
@@ -118,6 +109,33 @@ func WaitIfActiveFast() {
 		Cond.Wait()
 	}
 	Mu.Unlock()
+}
 
-	traceYieldEvent("wait_complete_fast", time.Since(start))
+
+// MaybeYieldWithContext is a context-aware version of MaybeYield
+func MaybeYieldWithContext(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		MaybeYield()
+		return nil
+	}
+}
+
+// WaitIfActiveWithContext is a context-aware version of WaitIfActive
+func WaitIfActiveWithContext(ctx context.Context) error {
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if HighPriorityCount.Load() == 0 {
+				return nil
+			}
+		}
+	}
 }

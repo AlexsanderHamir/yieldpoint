@@ -62,12 +62,6 @@ func highPriorityTask(name string, duration time.Duration) {
 }
 
 func main() {
-	// Set up tracing to see what's happening
-	yieldpoint.SetTraceFunc(func(e yieldpoint.YieldEvent) {
-		fmt.Printf("TRACE: Goroutine %d - %s (duration: %v)\n",
-			e.GoroutineID, e.Reason, e.Duration)
-	})
-
 	var wg sync.WaitGroup
 
 	// Start two workers using WaitIfActive

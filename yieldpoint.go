@@ -58,11 +58,15 @@ func EnterHighPriority() {
 // ExitHighPriority ends a high-priority section.
 // If this is the last high-priority section, it will signal any waiting goroutines.
 func ExitHighPriority() {
-	if HighPriorityCount.Add(-1) == 0 {
+	count := HighPriorityCount.Add(-1)
+	if count == 0 {
 		Mu.Lock()
 		Cond.Broadcast()
 		Mu.Unlock()
 		traceYieldEvent("exit_high_priority", 0)
+	} else if count < 0 {
+		// Reset to 0 if we somehow went negative
+		HighPriorityCount.Store(0)
 	}
 }
 

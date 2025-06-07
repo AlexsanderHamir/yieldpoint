@@ -91,7 +91,6 @@ func TestContextAwareFunctions(t *testing.T) {
 	}
 }
 
-
 func TestConcurrentHighPriority(t *testing.T) {
 	// Test multiple goroutines entering and exiting high priority simultaneously
 	var wg sync.WaitGroup
@@ -148,7 +147,6 @@ func TestNestedHighPriority(t *testing.T) {
 		t.Error("High priority active after extra ExitHighPriority calls")
 	}
 }
-
 
 func TestConcurrentWaitAndYield(t *testing.T) {
 	const numWaiters = 5
@@ -236,11 +234,9 @@ func TestContextCancellation(t *testing.T) {
 
 func TestConfigurationChanges(t *testing.T) {
 	// Test changing configuration values
-	originalYieldDuration := DefaultYieldDuration
 	originalSpinIterations := SpinWaitIterations
 
 	// Set new values
-	SetDefaultYieldDuration(2 * time.Millisecond)
 	SetSpinWaitIterations(2000)
 
 	// Verify changes took effect
@@ -263,7 +259,6 @@ func TestConfigurationChanges(t *testing.T) {
 	}
 
 	// Restore original values
-	SetDefaultYieldDuration(originalYieldDuration)
 	SetSpinWaitIterations(originalSpinIterations)
 	ExitHighPriority()
 }

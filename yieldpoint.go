@@ -24,10 +24,6 @@ var DefaultYieldDuration = 1 * time.Millisecond
 // SpinWaitIterations is the number of iterations to spin-wait before falling back to mutex-based waiting
 var SpinWaitIterations = 1000
 
-// SetDefaultYieldDuration sets the default duration to sleep when yielding
-func SetDefaultYieldDuration(d time.Duration) {
-	DefaultYieldDuration = d
-}
 
 // SetSpinWaitIterations sets the number of iterations to spin-wait before falling back to mutex-based waiting
 func SetSpinWaitIterations(n int) {
@@ -60,6 +56,11 @@ func ExitHighPriority() {
 	}
 }
 
+// IsHighPriorityActive returns true if any high-priority sections are currently active.
+func IsHighPriorityActive() bool {
+	return HighPriorityCount.Load() > 0
+}
+
 // WaitIfActive blocks the current goroutine until no high-priority sections are active.
 // This is an efficient blocking operation that uses sync.Cond to avoid busy waiting.
 func WaitIfActive() {
@@ -68,11 +69,6 @@ func WaitIfActive() {
 		Cond.Wait()
 		Mu.Unlock()
 	}
-}
-
-// IsHighPriorityActive returns true if any high-priority sections are currently active.
-func IsHighPriorityActive() bool {
-	return HighPriorityCount.Load() > 0
 }
 
 

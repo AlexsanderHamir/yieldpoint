@@ -10,7 +10,6 @@ import (
 
 func main() {
 	var wg sync.WaitGroup
-	yieldpoint.SetDefaultYieldDuration(10 * time.Millisecond)
 
 	wg.Add(1)
 	go func() {

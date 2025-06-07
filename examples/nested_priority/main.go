@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -11,15 +10,11 @@ import (
 func nestedHighPriorityTask(level int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	fmt.Printf("Entering high-priority level %d\n", level)
 	yieldpoint.EnterHighPriority()
 	defer yieldpoint.ExitHighPriority()
 
-	// Simulate some work at this priority level
 	time.Sleep(100 * time.Millisecond)
-	fmt.Printf("Completed work at level %d\n", level)
 
-	// If we haven't reached the maximum nesting level, create another nested section
 	if level < 2 {
 		wg.Add(1)
 		go nestedHighPriorityTask(level+1, wg)
@@ -27,17 +22,13 @@ func nestedHighPriorityTask(level int, wg *sync.WaitGroup) {
 
 	// Wait a bit before exiting this level
 	time.Sleep(100 * time.Millisecond)
-	fmt.Printf("Exiting high-priority level %d\n", level)
 }
 
 func backgroundWorker(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for i := range 5 {
-		fmt.Printf("Background worker iteration %d\n", i)
+	for range 5 {
 		yieldpoint.MaybeYield()
-		
-		// Simulate work
 		time.Sleep(50 * time.Millisecond)
 	}
 }
@@ -55,5 +46,4 @@ func main() {
 
 	// Wait for all tasks to complete
 	wg.Wait()
-	fmt.Println("All tasks completed")
 }

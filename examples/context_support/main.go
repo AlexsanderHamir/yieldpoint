@@ -12,16 +12,11 @@ import (
 func workerWithYieldContext(ctx context.Context, name string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	fmt.Printf("%s starting\n", name)
-
-	for i := range 5 {
+	for range 5 {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("%s cancelled: %v\n", name, ctx.Err())
 			return
 		default:
-			fmt.Printf("%s iteration %d\n", name, i)
-
 			// Try to yield with context
 			err := yieldpoint.MaybeYieldWithContext(ctx)
 			if err != nil {
@@ -33,30 +28,19 @@ func workerWithYieldContext(ctx context.Context, name string, wg *sync.WaitGroup
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-
-	fmt.Printf("%s completed normally\n", name)
 }
 
 func workerWithWaitContext(ctx context.Context, name string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	fmt.Printf("%s starting\n", name)
-
-	// Try to wait for high priority to finish, with context
-	fmt.Printf("%s waiting for high priority to finish...\n", name)
 	err := yieldpoint.WaitIfActiveWithContext(ctx)
 	if err != nil {
 		fmt.Printf("%s wait cancelled: %v\n", name, err)
 		return
 	}
-
-	fmt.Printf("%s high priority finished, proceeding with work\n", name)
-	for i := range 3 {
-		fmt.Printf("%s doing work %d\n", name, i)
+	for range 3 {
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	fmt.Printf("%s completed normally\n", name)
 }
 
 func main() {

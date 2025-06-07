@@ -16,17 +16,13 @@ func main() {
 		defer wg.Done()
 		for i := range 10 {
 			fmt.Printf("Background task iteration %d\n", i)
-			// This will block until no high-priority tasks are running
+			// This will yield once per iteration if high-priority tasks are active
 			yieldpoint.MaybeYield()
 
 			// Simulate work
 			time.Sleep(100 * time.Millisecond)
 		}
 	}()
-
-	// Simulate a high-priority task
-	time.Sleep(200 * time.Millisecond)
-	fmt.Println("Starting high-priority task...")
 
 	yieldpoint.EnterHighPriority()
 	// Do some high-priority work

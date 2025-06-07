@@ -1,19 +1,19 @@
 # yieldpoint
 
-A Go package that enables cooperative goroutine yielding based on priority-aware scheduling.
+A Go package for cooperative goroutine yielding with priority-aware scheduling.
 
 ## Overview
 
-`yieldpoint` provides a simple yet powerful mechanism for implementing cooperative multitasking in Go applications. It allows goroutines to voluntarily yield execution when high-priority tasks are active.
+`yieldpoint` enables goroutines to voluntarily yield execution when high-priority tasks are active, using atomic operations and condition variables for efficient synchronization.
 
 ## Features
 
-- **Priority-based Yielding**: Goroutines can yield execution when high-priority tasks are active
-- **Efficient Blocking**: Uses `sync.Cond` for efficient blocking without busy waiting
-- **Context Support**: Context-aware variants of all operations
-- **High Priority Support**: Simple boolean flag for high-priority tasks
-- **Thread Safety**: All operations are thread-safe
-- **Nesting Support**: High-priority sections can be nested
+- **Priority-based Yielding**: Voluntary yielding when high-priority tasks are active
+- **Efficient Blocking**: Uses `sync.Cond` for non-busy waiting
+- **Context Support**: Timeout-aware operations with context
+- **Thread Safety**: Atomic operations for high-priority counting
+- **Performance Optimizations**: Fast variants with spin-wait strategies
+- **Configurable**: Adjustable spin-wait iterations and yield durations
 
 ## Installation
 
@@ -31,23 +31,17 @@ package main
 import "github.com/AlexsanderHamir/yieldpoint"
 
 func main() {
-    // Start a high-priority section
+    // High-priority section
     yieldpoint.EnterHighPriority()
     defer yieldpoint.ExitHighPriority()
 
-    // In another goroutine
     go func() {
-        // This will yield if high-priority is active
-        yieldpoint.MaybeYield()
+        // Standard variants
+        yieldpoint.MaybeYield()      // Quick yield if high-priority active
+        yieldpoint.WaitIfActive()    // Block until high-priority ends
 
-        // Or block until high-priority ends
-        yieldpoint.WaitIfActive()
-
-        // higher performance
-        yieldpoint.MaybeYieldFast()
-
-        // higher performance
-        yieldpoint.WaitIfActiveFast()
+        // Fast variant for performance-critical paths
+        yieldpoint.WaitIfActiveFast() // Spin-wait before blocking
     }()
 }
 ```
@@ -58,49 +52,70 @@ func main() {
 ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 defer cancel()
 
-// Yield with context
-err := yieldpoint.MaybeYieldWithContext(ctx)
-if err != nil {
-    // Handle context cancellation
+// Non-blocking yield with timeout
+if err := yieldpoint.MaybeYieldWithContext(ctx); err != nil {
+    // Handle timeout/cancellation
 }
 
-// Wait with context
-err = yieldpoint.WaitIfActiveWithContext(ctx)
-if err != nil {
-    // Handle context cancellation
+// Blocking wait with timeout
+if err := yieldpoint.WaitIfActiveWithContext(ctx); err != nil {
+    // Handle timeout/cancellation
 }
+```
+
+### Nested High-Priority
+
+```go
+// Reference counting for nested sections
+yieldpoint.EnterHighPriority() // Count = 1
+yieldpoint.EnterHighPriority() // Count = 2
+defer yieldpoint.ExitHighPriority() // Count = 1
+defer yieldpoint.ExitHighPriority() // Count = 0, signals waiters
 ```
 
 ## API Reference
 
 ### Core Functions
 
-- `MaybeYield()`: Voluntarily yields if high-priority is active
-- `EnterHighPriority()`: Begins a high-priority section
-- `ExitHighPriority()`: Ends a high-priority section
-- `WaitIfActive()`: Blocks until high-priority section ends
-- `IsHighPriorityActive()`: Checks if any high-priority sections are active
+- `MaybeYield()`: Yields if high-priority active
+- `EnterHighPriority()`: Begins high-priority section (reference counted)
+- `ExitHighPriority()`: Ends high-priority section, signals if last
+- `WaitIfActive()`: Blocks until high-priority ends
+- `IsHighPriorityActive()`: Checks high-priority status
 
-### Configuration Functions
+### Performance Variants
 
-- `SetSpinWaitIterations(iterations int)`: Sets the number of spin iterations before falling back to blocking wait. This setting applies to the fast variant `WaitIfActiveFast`.
-- `SetDefaultYieldDuration(duration time.Duration)`: Sets the default duration for yielding operations. This setting applies to the standard `MaybeYield` to ensure it yields.
+- `WaitIfActiveFast()`: Spin-wait strategy for short waits
+  - Configurable via `SetSpinWaitIterations`
+  - Falls back to mutex-based waiting
 
-## High Performance Functions
+### Context Functions
 
-- `MaybeYieldFast()`: High performance version
-- `WaitIfActiveFast()`: High performance version
+- `MaybeYieldWithContext(ctx)`: Non-blocking yield with timeout
+- `WaitIfActiveWithContext(ctx)`: Blocking wait with timeout
 
+### Configuration
 
-### Context-aware Functions
+- `SetSpinWaitIterations(n int)`: Configure spin-wait behavior
 
-- `MaybeYieldWithContext(ctx context.Context) error`
-- `WaitIfActiveWithContext(ctx context.Context) error`
+## Performance
 
-## Contributions
+- Use fast variants in performance-critical paths
+- Tune `SpinWaitIterations` based on wait duration:
+  - Higher: Better for very short waits
+  - Lower: Better for longer waits
+- Set appropriate timeouts for context operations
 
-Share your talents and ideas !!
+## Thread Safety
+
+- Atomic high-priority counting
+- Mutex and condition variable for blocking
+- Safe for concurrent use
+
+## Contribution
+
+Share your talents and ideas!!
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE)

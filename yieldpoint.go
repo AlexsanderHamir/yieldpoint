@@ -35,15 +35,9 @@ func SetSpinWaitIterations(n int) {
 }
 
 // MaybeYield voluntarily yields the current goroutine if any high-priority sections are active.
-// This is a non-blocking operation that uses runtime.Gosched() combined with a small sleep
-// to ensure effective processor yielding.
 func MaybeYield() {
 	if HighPriorityCount.Load() > 0 {
-		// First try to yield using runtime.Gosched()
 		runtime.Gosched()
-
-		// Then sleep for a small duration to ensure the processor is actually yielded
-		time.Sleep(DefaultYieldDuration)
 	}
 }
 
@@ -62,7 +56,6 @@ func ExitHighPriority() {
 		Cond.Broadcast()
 		Mu.Unlock()
 	} else if count < 0 {
-		// Reset to 0 if we somehow went negative
 		HighPriorityCount.Store(0)
 	}
 }
@@ -82,14 +75,6 @@ func IsHighPriorityActive() bool {
 	return HighPriorityCount.Load() > 0
 }
 
-// MaybeYieldFast is a high-performance version of MaybeYield that avoids time.Sleep
-// and uses only runtime.Gosched() for minimal overhead. This is suitable for
-// performance-critical code paths where the exact timing of yields is less important.
-func MaybeYieldFast() {
-	if HighPriorityCount.Load() > 0 {
-		runtime.Gosched()
-	}
-}
 
 // WaitIfActiveFast is a high-performance version of WaitIfActive that uses a spin-wait
 // strategy before falling back to mutex-based waiting. This is suitable for
@@ -104,11 +89,11 @@ func WaitIfActiveFast() {
 	}
 
 	// Only fall back to mutex-based waiting if spin-wait didn't succeed
-	Mu.Lock()
 	for HighPriorityCount.Load() > 0 {
+		Mu.Lock()
 		Cond.Wait()
+		Mu.Unlock()
 	}
-	Mu.Unlock()
 }
 
 

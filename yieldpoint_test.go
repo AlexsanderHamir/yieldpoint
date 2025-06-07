@@ -149,34 +149,6 @@ func TestNestedHighPriority(t *testing.T) {
 	}
 }
 
-func TestMaybeYieldFast(t *testing.T) {
-	// Test that MaybeYieldFast doesn't block when no high priority is active
-	done := make(chan struct{})
-	go func() {
-		MaybeYieldFast()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// Success - MaybeYieldFast didn't block
-	case <-time.After(time.Second):
-		t.Fatal("MaybeYieldFast blocked when no high priority was active")
-	}
-
-	// Test that MaybeYieldFast yields when high priority is active
-	EnterHighPriority()
-	defer ExitHighPriority()
-
-	start := time.Now()
-	MaybeYieldFast()
-	duration := time.Since(start)
-
-	// runtime.Gosched() should be very fast
-	if duration > time.Millisecond {
-		t.Errorf("MaybeYieldFast took too long: %v", duration)
-	}
-}
 
 func TestConcurrentWaitAndYield(t *testing.T) {
 	const numWaiters = 5

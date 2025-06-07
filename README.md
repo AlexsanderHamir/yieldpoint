@@ -77,15 +77,16 @@ defer yieldpoint.ExitHighPriority() // Count = 0, signals waiters
 
 ### Core Functions
 
-- `MaybeYield()`: Yields if high-priority active
+
+- `MaybeYield()`: If high-priority tasks are active, it yields the current goroutine using `runtime.Gosched()`, allowing others to run. The goroutine will resume execution in a future time slice if `MaybeYield()` isn't called again.
+- `WaitIfActive()`: Blocks the calling goroutine using `sync.Cond` until there are no active high-priority tasks.
 - `EnterHighPriority()`: Begins high-priority section (reference counted)
 - `ExitHighPriority()`: Ends high-priority section, signals if last
-- `WaitIfActive()`: Blocks until high-priority ends
 - `IsHighPriorityActive()`: Checks high-priority status
 
 ### Performance Variants
 
-- `WaitIfActiveFast()`: Spin-wait strategy for short waits
+- `WaitIfActiveFast()`: Spin-wait strategy for short waits + `sync.cond` in case it the spin wasn't enough.
   - Configurable via `SetSpinWaitIterations`
   - Falls back to mutex-based waiting
 

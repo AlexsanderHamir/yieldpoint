@@ -9,7 +9,7 @@ import (
 	"github.com/AlexsanderHamir/yieldpoint"
 )
 
-func workerWithContext(ctx context.Context, name string, wg *sync.WaitGroup) {
+func workerWithYieldContext(ctx context.Context, name string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	fmt.Printf("%s starting\n", name)
@@ -37,23 +37,58 @@ func workerWithContext(ctx context.Context, name string, wg *sync.WaitGroup) {
 	fmt.Printf("%s completed normally\n", name)
 }
 
+func workerWithWaitContext(ctx context.Context, name string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	fmt.Printf("%s starting\n", name)
+
+	// Try to wait for high priority to finish, with context
+	fmt.Printf("%s waiting for high priority to finish...\n", name)
+	err := yieldpoint.WaitIfActiveWithContext(ctx)
+	if err != nil {
+		fmt.Printf("%s wait cancelled: %v\n", name, err)
+		return
+	}
+
+	fmt.Printf("%s high priority finished, proceeding with work\n", name)
+	for i := range 3 {
+		fmt.Printf("%s doing work %d\n", name, i)
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	fmt.Printf("%s completed normally\n", name)
+}
+
 func main() {
 	var wg sync.WaitGroup
 
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
-	defer cancel()
+	// Create contexts with different timeouts
+	yieldCtx, yieldCancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer yieldCancel()
+
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer waitCancel()
 
 	// Start a high-priority section
 	yieldpoint.EnterHighPriority()
 	defer yieldpoint.ExitHighPriority()
 
-	// Start workers that will be affected by the context
+	// Start workers that use MaybeYieldWithContext
 	wg.Add(2)
-	go workerWithContext(ctx, "Worker 1", &wg)
-	go workerWithContext(ctx, "Worker 2", &wg)
+	go workerWithYieldContext(yieldCtx, "Yield Worker 1", &wg)
+	go workerWithYieldContext(yieldCtx, "Yield Worker 2", &wg)
 
-	// Wait for workers to complete or timeout
+	// Start workers that use WaitIfActiveWithContext
+	wg.Add(2)
+	go workerWithWaitContext(waitCtx, "Wait Worker 1", &wg)
+	go workerWithWaitContext(waitCtx, "Wait Worker 2", &wg)
+
+	// Simulate some high-priority work
+	time.Sleep(200 * time.Millisecond)
+	fmt.Println("Exiting high priority section...")
+	yieldpoint.ExitHighPriority()
+
+	// Wait for all workers to complete or timeout
 	wg.Wait()
 	fmt.Println("Main function completed")
 }

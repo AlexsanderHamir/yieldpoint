@@ -96,7 +96,26 @@ defer yieldpoint.ExitHighPriority() // Count = 0, signals waiters
 
 ### Configuration
 
-- `SetSpinWaitIterations(n int)`: Configure spin-wait behavior
+- `SetSpinWaitIterations(n int)`: Configure spin-wait behavior for the fast variation of WaitIfActive, it attempts to yield without blocking, but falls back to the conditional variable if it exhausts n.
+
+```` go
+func WaitIfActiveFast() {
+	// First try spin-waiting
+	for range SpinWaitIterations {
+		if HighPriorityCount.Load() == 0 {
+			return
+		}
+		runtime.Gosched()
+	}
+
+	// Only fall back to mutex-based waiting if spin-wait didn't succeed
+	for HighPriorityCount.Load() > 0 {
+		Mu.Lock()
+		Cond.Wait()
+		Mu.Unlock()
+	}
+}
+````
 
 ## Performance
 
